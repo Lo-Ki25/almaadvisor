@@ -1,5 +1,7 @@
-// Document parsing utilities for Vercel deployment
-// Note: In production, consider using external document parsing services
+import { readFile } from "fs/promises"
+import * as XLSX from "xlsx"
+import { parse as csvParse } from "csv-parse/sync"
+// Note: pdf-parse and mammoth are imported dynamically to avoid build issues
 
 export interface ParsedDocument {
   text: string
@@ -9,27 +11,31 @@ export interface ParsedDocument {
 
 export class DocumentParser {
   static async parseFile(filePath: string, mimeType: string): Promise<ParsedDocument> {
-    // For Vercel deployment, we'll use placeholder implementations
-    // In production, integrate with external document parsing services like:
-    // - Adobe PDF Services API
-    // - Microsoft Graph API
-    // - Google Cloud Document AI
-
-    switch (mimeType) {
-      case "application/pdf":
-        return this.parsePDFPlaceholder(filePath)
-      case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return this.parseDOCXPlaceholder(filePath)
-      case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-      case "application/vnd.ms-excel":
-        return this.parseXLSXPlaceholder(filePath)
-      case "text/csv":
-        return this.parseCSVPlaceholder(filePath)
-      case "text/markdown":
-      case "text/plain":
-        return this.parseTextPlaceholder(filePath)
-      default:
-        throw new Error(`Unsupported file type: ${mimeType}`)
+    console.log(`Parsing file: ${filePath} with type: ${mimeType}`)
+    
+    try {
+      const buffer = await readFile(filePath)
+      
+      switch (mimeType) {
+        case "application/pdf":
+          return await this.parsePDF(buffer)
+        case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+          return await this.parseDOCX(buffer)
+        case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        case "application/vnd.ms-excel":
+          return await this.parseXLSX(buffer)
+        case "text/csv":
+          return await this.parseCSV(buffer)
+        case "text/markdown":
+        case "text/plain":
+          return await this.parseText(buffer)
+        default:
+          throw new Error(`Unsupported file type: ${mimeType}`)
+      }
+    } catch (error) {
+      console.error(`Error parsing file ${filePath}:`, error)
+      // Fallback to placeholder if real parsing fails
+      return this.createFallbackDocument(filePath, mimeType, error)
     }
   }
 
@@ -74,22 +80,40 @@ export class DocumentParser {
     }
   }
 
-  // Original parse methods are kept for reference and potential future use
+  private static createFallbackDocument(filePath: string, mimeType: string, error: any): ParsedDocument {
+    const fileName = filePath.split('/').pop() || 'unknown'
+    return {
+      text: `Document: ${fileName}\nType: ${mimeType}\nStatus: Successfully uploaded but content parsing failed. The file is available for manual review.\nNote: This document will be processed when advanced parsing services are configured.`,
+      pages: 1,
+      metadata: { 
+        type: mimeType, 
+        source: filePath, 
+        error: error?.message || 'Unknown parsing error',
+        fallback: true 
+      },
+    }
+  }
+
   private static async parsePDF(buffer: Buffer): Promise<ParsedDocument> {
     try {
-      const data = await pdf(buffer)
+      // Dynamic import to avoid build issues
+      const pdfParse = await import('pdf-parse')
+      const data = await pdfParse.default(buffer)
       return {
         text: data.text,
         pages: data.numpages,
         metadata: data.metadata,
       }
     } catch (error) {
+      console.warn('PDF parsing failed, using fallback')
       throw new Error(`Failed to parse PDF: ${error}`)
     }
   }
 
   private static async parseDOCX(buffer: Buffer): Promise<ParsedDocument> {
     try {
+      // Dynamic import to avoid build issues
+      const mammoth = await import('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       return {
         text: result.value,
@@ -97,6 +121,7 @@ export class DocumentParser {
         metadata: { warnings: result.messages },
       }
     } catch (error) {
+      console.warn('DOCX parsing failed, using fallback')
       throw new Error(`Failed to parse DOCX: ${error}`)
     }
   }

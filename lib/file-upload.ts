@@ -12,55 +12,70 @@ export interface UploadedFile {
 }
 
 export class FileUploadHandler {
-  private static uploadDir = process.env.UPLOAD_DIR || "./uploads"
-  private static maxFileSize = Number.parseInt(process.env.MAX_FILE_SIZE || "50000000") // 50MB
+  private static uploadDir = process.env.UPLOAD_DIR || "/tmp/uploads"
+  private static maxFileSize = Number.parseInt(process.env.MAX_FILE_SIZE || "52428800") // 50MB
 
   static async handleUpload(request: NextRequest, projectId: string): Promise<UploadedFile[]> {
-    const formData = await request.formData()
-    const files = formData.getAll("files") as File[]
+    try {
+      const formData = await request.formData()
+      const files = formData.getAll("files") as File[]
 
-    if (!files || files.length === 0) {
-      throw new Error("No files provided")
-    }
-
-    // Ensure upload directory exists
-    const projectDir = path.join(this.uploadDir, projectId)
-    await mkdir(projectDir, { recursive: true })
-
-    const uploadedFiles: UploadedFile[] = []
-
-    for (const file of files) {
-      if (file.size > this.maxFileSize) {
-        throw new Error(`File ${file.name} exceeds maximum size of ${this.maxFileSize} bytes`)
+      if (!files || files.length === 0) {
+        throw new Error("No files provided")
       }
 
-      if (!this.isAllowedFileType(file.type)) {
-        throw new Error(`File type ${file.type} is not allowed`)
+      // Ensure upload directory exists
+      const projectDir = path.join(this.uploadDir, projectId)
+      await mkdir(projectDir, { recursive: true })
+
+      const uploadedFiles: UploadedFile[] = []
+
+      for (const file of files) {
+        // Validate file size
+        if (file.size === 0) {
+          throw new Error(`File ${file.name} is empty`)
+        }
+
+        if (file.size > this.maxFileSize) {
+          throw new Error(`File ${file.name} exceeds maximum size of ${Math.round(this.maxFileSize / 1024 / 1024)}MB`)
+        }
+
+        // Validate file type
+        if (!this.isAllowedFileType(file.type, file.name)) {
+          throw new Error(`File type ${file.type || 'unknown'} is not supported. Allowed: PDF, DOCX, XLSX, CSV, TXT, MD, ZIP`)
+        }
+
+        const fileId = randomUUID()
+        const extension = path.extname(file.name)
+        const fileName = `${fileId}${extension}`
+        const filePath = path.join(projectDir, fileName)
+
+        // Convert file to buffer
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+
+        // Write file to disk
+        await writeFile(filePath, buffer)
+
+        console.log(`File uploaded successfully: ${file.name} (${file.size} bytes) -> ${filePath}`)
+
+        uploadedFiles.push({
+          id: fileId,
+          name: file.name,
+          size: file.size,
+          type: file.type || this.getMimeTypeFromExtension(extension),
+          path: filePath,
+        })
       }
 
-      const fileId = randomUUID()
-      const extension = path.extname(file.name)
-      const fileName = `${fileId}${extension}`
-      const filePath = path.join(projectDir, fileName)
-
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-
-      await writeFile(filePath, buffer)
-
-      uploadedFiles.push({
-        id: fileId,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        path: filePath,
-      })
+      return uploadedFiles
+    } catch (error) {
+      console.error("FileUploadHandler error:", error)
+      throw error
     }
-
-    return uploadedFiles
   }
 
-  private static isAllowedFileType(mimeType: string): boolean {
+  private static isAllowedFileType(mimeType: string, fileName: string): boolean {
     const allowedTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -72,7 +87,31 @@ export class FileUploadHandler {
       "application/zip",
     ]
 
-    return allowedTypes.includes(mimeType)
+    // Check by MIME type first
+    if (mimeType && allowedTypes.includes(mimeType)) {
+      return true
+    }
+
+    // Fallback: check by file extension
+    const extension = path.extname(fileName).toLowerCase()
+    const allowedExtensions = [".pdf", ".docx", ".xlsx", ".xls", ".csv", ".txt", ".md", ".zip"]
+    
+    return allowedExtensions.includes(extension)
+  }
+
+  private static getMimeTypeFromExtension(extension: string): string {
+    const mimeTypes: Record<string, string> = {
+      ".pdf": "application/pdf",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ".xls": "application/vnd.ms-excel",
+      ".csv": "text/csv",
+      ".txt": "text/plain",
+      ".md": "text/markdown",
+      ".zip": "application/zip",
+    }
+
+    return mimeTypes[extension.toLowerCase()] || "application/octet-stream"
   }
 
   static getFileExtension(mimeType: string): string {
