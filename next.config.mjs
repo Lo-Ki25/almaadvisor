@@ -12,6 +12,13 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['pdf-parse', 'mammoth', 'xlsx'],
   },
+  // Configuration pour les uploads de gros fichiers
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb',
+    },
+    responseLimit: false,
+  },
 }
 
 export default nextConfig

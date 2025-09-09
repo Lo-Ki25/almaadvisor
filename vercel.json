@@ -3,8 +3,20 @@
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "functions": {
+    "app/api/**/upload/*.ts": {
+      "maxDuration": 300
+    },
+    "app/api/**/ingest/*.ts": {
+      "maxDuration": 300
+    },
+    "app/api/**/embed/*.ts": {
+      "maxDuration": 300
+    },
+    "app/api/**/generate/*.ts": {
+      "maxDuration": 300
+    },
     "app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   }
 }

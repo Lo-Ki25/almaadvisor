@@ -159,28 +159,76 @@ export default function NewReportPage() {
   }
 
   const uploadFiles = async (projectId: string) => {
-    const formData = new FormData()
-    uploadedFiles.forEach(({ file }) => {
+    console.log(`Starting upload of ${uploadedFiles.length} files`)
+    const uploadResults = []
+    
+    // Trier les fichiers par taille (plus petits d'abord)
+    const sortedFiles = [...uploadedFiles].sort((a, b) => a.file.size - b.file.size)
+    
+    // Upload des fichiers un par un
+    for (let i = 0; i < sortedFiles.length; i++) {
+      const { file } = sortedFiles[i]
+      console.log(`Uploading file ${i + 1}/${sortedFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      
+      // Vérifier la taille individuelle
+      if (file.size > 50 * 1024 * 1024) { // 50MB
+        console.warn(`Skipping file ${file.name} - too large (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+        toast({
+          title: "Fichier ignoré",
+          description: `${file.name} est trop volumineux (max 50MB)`,
+          variant: "destructive",
+        })
+        continue
+      }
+      
+      const formData = new FormData()
       formData.append("files", file)
-    })
 
-    try {
-      const response = await fetch(`/api/projects/${projectId}/upload`, {
-        method: "POST",
-        body: formData,
-      })
+      try {
+        const response = await fetch(`/api/projects/${projectId}/upload`, {
+          method: "POST",
+          body: formData,
+        })
 
-      if (!response.ok) throw new Error("Upload failed")
+        if (!response.ok) {
+          if (response.status === 413) {
+            console.error(`File ${file.name} too large for upload`)
+            toast({
+              title: "Fichier trop volumineux",
+              description: `${file.name} dépasse les limites du serveur`,
+              variant: "destructive",
+            })
+            continue
+          }
+          throw new Error(`Upload failed for ${file.name}: ${response.status}`)
+        }
 
-      return await response.json()
-    } catch (error) {
-      toast({
-        title: "Erreur d'upload",
-        description: "Impossible d'uploader les fichiers",
-        variant: "destructive",
-      })
-      throw error
+        const result = await response.json()
+        uploadResults.push(result)
+        console.log(`Successfully uploaded: ${file.name}`)
+        
+        // Pause courte entre les uploads
+        if (i < sortedFiles.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+      } catch (error) {
+        console.error(`Error uploading ${file.name}:`, error)
+        toast({
+          title: "Erreur d'upload",
+          description: `Erreur avec ${file.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+          variant: "destructive",
+        })
+        // Continue avec les autres fichiers plutôt que d'échouer complètement
+      }
     }
+    
+    if (uploadResults.length === 0) {
+      throw new Error("Aucun fichier n'a pu être uploadé")
+    }
+    
+    console.log(`Upload completed: ${uploadResults.length}/${uploadedFiles.length} files uploaded successfully`)
+    return { uploadResults, totalUploaded: uploadResults.length, totalFiles: uploadedFiles.length }
   }
 
   const processDocuments = async (projectId: string) => {
