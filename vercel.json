@@ -1,4 +1,17 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "LLM_PROVIDER": "openai",
+    "UPLOAD_DIR": "./uploads",
+    "MAX_FILE_SIZE": "50000000"
+  }
 }
