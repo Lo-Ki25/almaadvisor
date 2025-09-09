@@ -113,6 +113,52 @@ git push origin main
 - **UI** - Radix UI, Lucide Icons
 - **Déploiement** - Vercel
 
+## Déploiement Rapide sur Vercel
+
+### 1. Clonez et préparez le projet
+```bash
+git clone <votre-repo>
+cd alma-advisor
+npm install
+```
+
+### 2. Configurez les variables d'environnement
+Créez un fichier `.env.local` :
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/alma_advisor"
+OPENAI_API_KEY="your_openai_api_key_here"
+LLM_PROVIDER="openai"
+```
+
+### 3. Initialisez la base de données
+```bash
+npx prisma db push
+```
+
+### 4. Déployez sur Vercel
+```bash
+# Connectez votre repo à GitHub
+git remote add origin https://github.com/VOTRE_USERNAME/alma-advisor.git
+git push -u origin main
+
+# Déployez sur Vercel via l'interface web
+# https://vercel.com/new
+```
+
+### 5. Configurez les variables d'environnement sur Vercel
+Dans les paramètres du projet Vercel, ajoutez :
+- `DATABASE_URL` - URL de votre base PostgreSQL
+- `OPENAI_API_KEY` - Votre clé API OpenAI
+- `LLM_PROVIDER` - "openai"
+
+## Documentation Complète
+
+- [Guide de Déploiement Détaillé](./DEPLOY.md)
+- [Architecture Technique](./README.md#architecture)
+
 ## Support
 
-Pour toute question ou problème, consultez la documentation ou contactez l'équipe de développement.
+Pour toute question ou problème :
+1. Consultez le guide [DEPLOY.md](./DEPLOY.md)
+2. Vérifiez les logs Vercel
+3. Contactez l'équipe de développement
