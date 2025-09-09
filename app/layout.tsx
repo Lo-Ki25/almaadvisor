@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "ALMA-ADVISOR - Digital Transformation Platform",
@@ -27,6 +28,7 @@ export default function RootLayout({
         <div className="lg:pl-64">
           <main className="lg:p-8 p-4">{children}</main>
         </div>
+        <Toaster />
         <Analytics />
       </body>
     </html>

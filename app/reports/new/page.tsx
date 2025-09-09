@@ -92,13 +92,33 @@ export default function NewReportPage() {
   ]
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleFileUpload called", event.target.files)
     const files = Array.from(event.target.files || [])
-    const newFiles: UploadedFile[] = files.map((file) => ({
-      file,
-      status: "pending",
-      progress: 0,
-    }))
-    setUploadedFiles((prev) => [...prev, ...newFiles])
+    console.log("Files selected:", files)
+    
+    if (files.length === 0) {
+      console.log("No files selected")
+      return
+    }
+    
+    const newFiles: UploadedFile[] = files.map((file) => {
+      console.log("Processing file:", file.name, file.size, file.type)
+      return {
+        file,
+        status: "pending" as const,
+        progress: 0,
+      }
+    })
+    
+    setUploadedFiles((prev) => {
+      console.log("Previous files:", prev.length, "New files:", newFiles.length)
+      return [...prev, ...newFiles]
+    })
+    
+    toast({
+      title: "Fichiers sélectionnés",
+      description: `${files.length} fichier(s) ajouté(s)`,
+    })
   }
 
   const removeFile = (index: number) => {
@@ -399,7 +419,15 @@ export default function NewReportPage() {
                   id="file-upload"
                 />
                 <Label htmlFor="file-upload">
-                  <Button variant="outline" className="cursor-pointer bg-transparent">
+                  <Button 
+                    variant="outline" 
+                    className="cursor-pointer bg-transparent"
+                    onClick={() => {
+                      console.log("Button clicked, opening file dialog")
+                      document.getElementById("file-upload")?.click()
+                    }}
+                    type="button"
+                  >
                     <FileUp className="h-4 w-4 mr-2" />
                     Sélectionner des fichiers
                   </Button>
