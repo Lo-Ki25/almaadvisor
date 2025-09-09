@@ -21,9 +21,14 @@ const createProjectSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('POST /api/projects - Starting request')
     const body = await request.json()
+    console.log('Request body:', JSON.stringify(body, null, 2))
+    
     const data = createProjectSchema.parse(body)
+    console.log('Validated data:', JSON.stringify(data, null, 2))
 
+    console.log('Creating project in database...')
     const project = await db.project.create({
       data: {
         title: data.title,
@@ -37,11 +42,16 @@ export async function POST(request: NextRequest) {
         status: "draft",
       },
     })
+    console.log('Project created successfully:', project.id)
 
     return NextResponse.json(project)
   } catch (error) {
     console.error("Error creating project:", error)
-    return NextResponse.json({ error: "Failed to create project" }, { status: 500 })
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return NextResponse.json({ 
+      error: "Failed to create project", 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 

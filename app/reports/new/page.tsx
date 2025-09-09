@@ -127,21 +127,31 @@ export default function NewReportPage() {
 
   const createProject = async () => {
     try {
+      console.log('Creating project with data:', projectData)
+      
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(projectData),
       })
 
-      if (!response.ok) throw new Error("Failed to create project")
+      console.log('Response status:', response.status)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('API error response:', errorData)
+        throw new Error(`Failed to create project: ${errorData.details || errorData.error || 'Unknown error'}`)
+      }
 
       const project = await response.json()
+      console.log('Project created successfully:', project)
       setProjectId(project.id)
       return project.id
     } catch (error) {
+      console.error('Create project error:', error)
       toast({
         title: "Erreur",
-        description: "Impossible de créer le projet",
+        description: error instanceof Error ? error.message : "Impossible de créer le projet",
         variant: "destructive",
       })
       throw error
@@ -526,12 +536,14 @@ export default function NewReportPage() {
                     id="chunkSize"
                     type="number"
                     value={projectData.ragOptions.chunkSize}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target.value
+                      const numValue = value === '' ? 800 : Number.parseInt(value) || 800
                       setProjectData((prev) => ({
                         ...prev,
-                        ragOptions: { ...prev.ragOptions, chunkSize: Number.parseInt(e.target.value) },
+                        ragOptions: { ...prev.ragOptions, chunkSize: numValue },
                       }))
-                    }
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">Nombre de caractères par segment</p>
                 </div>
@@ -541,12 +553,14 @@ export default function NewReportPage() {
                     id="overlap"
                     type="number"
                     value={projectData.ragOptions.overlap}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target.value
+                      const numValue = value === '' ? 120 : Number.parseInt(value) || 120
                       setProjectData((prev) => ({
                         ...prev,
-                        ragOptions: { ...prev.ragOptions, overlap: Number.parseInt(e.target.value) },
+                        ragOptions: { ...prev.ragOptions, overlap: numValue },
                       }))
-                    }
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">Caractères de chevauchement</p>
                 </div>
@@ -556,12 +570,14 @@ export default function NewReportPage() {
                     id="topK"
                     type="number"
                     value={projectData.ragOptions.topK}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const value = e.target.value
+                      const numValue = value === '' ? 8 : Number.parseInt(value) || 8
                       setProjectData((prev) => ({
                         ...prev,
-                        ragOptions: { ...prev.ragOptions, topK: Number.parseInt(e.target.value) },
+                        ragOptions: { ...prev.ragOptions, topK: numValue },
                       }))
-                    }
+                    }}
                   />
                   <p className="text-xs text-muted-foreground">Nombre de chunks à récupérer</p>
                 </div>
