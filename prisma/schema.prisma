@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  title        String
+  client       String?
+  lead         String?
+  language     String   @default("FR")
+  committee    String?  // institutionnel|technique|mixte
+  style        String?  // cabinet|pedagogique|mixte
+  status       String   @default("draft")
+  methodologies String? // JSON array of selected methodologies
+  ragOptions   String?  // JSON object with chunk size, overlap, top-k
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  documents    Document[]
+  chunks       Chunk[]
+  citations    Citation[]
+  diagrams     Diagram[]
+  tables       DataTable[]
+  report       Report?
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  mime      String
+  pages     Int?
+  path      String
+  size      Int?
+  status    String   @default("uploaded") // uploaded|processing|processed|error
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chunks    Chunk[]
+  citations Citation[]
+  
+  @@index([projectId])
+}
+
+model Chunk {
+  id        String   @id @default(cuid())
+  projectId String
+  docId     String
+  page      Int
+  text      String
+  embedding Bytes?
+  metadata  String?  // JSON object with additional metadata
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document  Document @relation(fields: [docId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@index([docId])
+}
+
+model Citation {
+  id        String   @id @default(cuid())
+  projectId String
+  docId     String
+  page      Int
+  snippet   String
+  section   String
+  confidence Float?
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document  Document @relation(fields: [docId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+}
+
+model Diagram {
+  id        String   @id @default(cuid())
+  projectId String
+  kind      String   // c4-context|c4-container|c4-component|c4-code|bpmn|gantt|deploy|stride
+  title     String
+  mermaid   String
+  svgPath   String?
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+}
+
+model DataTable {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String   // RICE|Budget|BSC|RACI|APIs|DataModel|Traceability
+  csv       String
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  markdown  String   // dossier complet
+  pdfPath   String?
+  annexPath String?  // path to annexes ZIP file
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
