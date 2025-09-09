@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Upload, Brain, Settings, ChevronRight, ChevronLeft, CheckCircle, FileUp, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 
 interface ProjectData {
   title: string
@@ -92,28 +92,19 @@ export default function NewReportPage() {
   ]
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("handleFileUpload called", event.target.files)
     const files = Array.from(event.target.files || [])
-    console.log("Files selected:", files)
     
     if (files.length === 0) {
-      console.log("No files selected")
       return
     }
     
-    const newFiles: UploadedFile[] = files.map((file) => {
-      console.log("Processing file:", file.name, file.size, file.type)
-      return {
-        file,
-        status: "pending" as const,
-        progress: 0,
-      }
-    })
+    const newFiles: UploadedFile[] = files.map((file) => ({
+      file,
+      status: "pending" as const,
+      progress: 0,
+    }))
     
-    setUploadedFiles((prev) => {
-      console.log("Previous files:", prev.length, "New files:", newFiles.length)
-      return [...prev, ...newFiles]
-    })
+    setUploadedFiles((prev) => [...prev, ...newFiles])
     
     toast({
       title: "Fichiers sélectionnés",
@@ -127,28 +118,21 @@ export default function NewReportPage() {
 
   const createProject = async () => {
     try {
-      console.log('Creating project with data:', projectData)
-      
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(projectData),
       })
-
-      console.log('Response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.error('API error response:', errorData)
         throw new Error(`Failed to create project: ${errorData.details || errorData.error || 'Unknown error'}`)
       }
 
       const project = await response.json()
-      console.log('Project created successfully:', project)
       setProjectId(project.id)
       return project.id
     } catch (error) {
-      console.error('Create project error:', error)
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Impossible de créer le projet",
@@ -159,7 +143,6 @@ export default function NewReportPage() {
   }
 
   const uploadFiles = async (projectId: string) => {
-    console.log(`Starting upload of ${uploadedFiles.length} files`)
     const uploadResults = []
     
     // Trier les fichiers par taille (plus petits d'abord)
@@ -168,11 +151,9 @@ export default function NewReportPage() {
     // Upload des fichiers un par un
     for (let i = 0; i < sortedFiles.length; i++) {
       const { file } = sortedFiles[i]
-      console.log(`Uploading file ${i + 1}/${sortedFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
       
       // Vérifier la taille individuelle
       if (file.size > 50 * 1024 * 1024) { // 50MB
-        console.warn(`Skipping file ${file.name} - too large (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
         toast({
           title: "Fichier ignoré",
           description: `${file.name} est trop volumineux (max 50MB)`,
@@ -192,7 +173,6 @@ export default function NewReportPage() {
 
         if (!response.ok) {
           if (response.status === 413) {
-            console.error(`File ${file.name} too large for upload`)
             toast({
               title: "Fichier trop volumineux",
               description: `${file.name} dépasse les limites du serveur`,
@@ -258,19 +238,50 @@ export default function NewReportPage() {
 
   const generateReport = async (projectId: string) => {
     try {
+      console.log(`Starting report generation for project: ${projectId}`)
+      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes timeout
+      
       const response = await fetch(`/api/projects/${projectId}/generate`, {
         method: "POST",
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        }
       })
-
-      if (!response.ok) throw new Error("Generation failed")
-
-      return await response.json()
+      
+      clearTimeout(timeoutId)
+      
+      console.log(`Generate API response status: ${response.status}`)
+      console.log(`Generate API response headers:`, Object.fromEntries(response.headers))
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Generation failed with status ${response.status}:`, errorText)
+        throw new Error(`Generation failed: ${response.status} - ${errorText}`)
+      }
+      
+      const result = await response.json()
+      console.log('Report generation successful:', result)
+      return result
+      
     } catch (error) {
-      toast({
-        title: "Erreur de génération",
-        description: "Impossible de générer le rapport",
-        variant: "destructive",
-      })
+      console.error('Report generation error details:', error)
+      
+      if (error.name === 'AbortError') {
+        toast({
+          title: "Timeout de génération",
+          description: "La génération du rapport a pris trop de temps",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Erreur de génération",
+          description: `Impossible de générer le rapport: ${error.message}`,
+          variant: "destructive",
+        })
+      }
       throw error
     }
   }
@@ -291,13 +302,19 @@ export default function NewReportPage() {
       await processDocuments(newProjectId)
 
       // Step 4: Generate report
-      await generateReport(newProjectId)
+      const reportResult = await generateReport(newProjectId)
+      
+      console.log('Report generated, navigating to:', newProjectId)
+      console.log('Report result:', reportResult)
 
       toast({
         title: "Succès",
         description: "Rapport généré avec succès",
       })
 
+      // Attendre un peu pour s'assurer que les fichiers sont sauvegardés
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       router.push(`/reports/${newProjectId}`)
     } catch (error) {
       console.error("Generation error:", error)

@@ -232,14 +232,157 @@ export class ArchitectureDiagramGenerator implements DiagramGenerator {
   }
 }
 
+export class C4ComponentDiagramGenerator implements DiagramGenerator {
+  generateDiagram(context: string, projectData: any): string {
+    return `graph TB
+    subgraph "Component Diagram - ${projectData.title || 'System'}"
+        subgraph "API Layer"
+            AuthComponent[🔐 Authentication Component]
+            APIController[🔌 API Controller]
+            Validation[✅ Validation Component]
+        end
+        
+        subgraph "Business Layer"
+            BusinessLogic[⚙️ Business Logic]
+            DataAccess[📊 Data Access]
+            EventHandler[📨 Event Handler]
+        end
+        
+        subgraph "Infrastructure"
+            Database[(🗄️ Database)]
+            MessageQueue[📬 Message Queue]
+            Cache[⚡ Cache]
+        end
+    end
+    
+    APIController --> AuthComponent
+    APIController --> Validation
+    APIController --> BusinessLogic
+    BusinessLogic --> DataAccess
+    BusinessLogic --> EventHandler
+    DataAccess --> Database
+    EventHandler --> MessageQueue
+    BusinessLogic --> Cache
+    
+    classDef api fill:#e3f2fd
+    classDef business fill:#e8f5e8
+    classDef infra fill:#fff3e0
+    
+    class AuthComponent,APIController,Validation api
+    class BusinessLogic,DataAccess,EventHandler business
+    class Database,MessageQueue,Cache infra`
+  }
+}
+
+export class FlowchartDiagramGenerator implements DiagramGenerator {
+  generateDiagram(context: string, projectData: any): string {
+    return `flowchart TD
+    A[🚀 Début du Processus] --> B{📋 Validation des Données}
+    B -->|✅ Valide| C[⚙️ Traitement Principal]
+    B -->|❌ Invalide| D[📝 Correction des Erreurs]
+    D --> B
+    C --> E{🔍 Contrôle Qualité}
+    E -->|✅ Conforme| F[💾 Sauvegarde]
+    E -->|❌ Non-conforme| G[🔧 Corrections]
+    G --> C
+    F --> H[📤 Notification]
+    H --> I[✅ Fin du Processus]
+    
+    classDef startEnd fill:#c8e6c9
+    classDef process fill:#bbdefb
+    classDef decision fill:#ffecb3
+    classDef error fill:#ffcdd2
+    
+    class A,I startEnd
+    class C,F,H process
+    class B,E decision
+    class D,G error`
+  }
+}
+
+export class SequenceDiagramGenerator implements DiagramGenerator {
+  generateDiagram(context: string, projectData: any): string {
+    return `sequenceDiagram
+    participant U as 👤 Utilisateur
+    participant F as 🌐 Frontend
+    participant A as 🔌 API Gateway
+    participant S as ⚙️ Service Métier
+    participant D as 🗄️ Base de Données
+    
+    U->>F: 📝 Demande
+    F->>A: 🔐 Authentification
+    A->>F: ✅ Token
+    F->>A: 📤 Requête Métier
+    A->>S: ⚙️ Traitement
+    S->>D: 📊 Lecture/Écriture
+    D->>S: 📋 Données
+    S->>A: 📦 Résultat
+    A->>F: 📥 Réponse
+    F->>U: ✨ Affichage`
+  }
+}
+
+export class ClassDiagramGenerator implements DiagramGenerator {
+  generateDiagram(context: string, projectData: any): string {
+    return `classDiagram
+    class User {
+        +String id
+        +String name
+        +String email
+        +authenticate()
+        +authorize()
+    }
+    
+    class Project {
+        +String id
+        +String title
+        +String status
+        +Date createdAt
+        +create()
+        +update()
+        +delete()
+    }
+    
+    class Document {
+        +String id
+        +String name
+        +String path
+        +String mime
+        +upload()
+        +parse()
+        +delete()
+    }
+    
+    class Report {
+        +String id
+        +String markdown
+        +String pdfPath
+        +generate()
+        +export()
+        +view()
+    }
+    
+    User "1" --> "*" Project : creates
+    Project "1" --> "*" Document : contains
+    Project "1" --> "1" Report : generates
+    
+    User ||--o{ Project : manages
+    Project ||--o{ Document : includes`
+  }
+}
+
 export class DiagramGeneratorFactory {
   static generators: Record<string, DiagramGenerator> = {
     "c4-context": new C4ContextDiagramGenerator(),
     "c4-container": new C4ContainerDiagramGenerator(),
+    "c4-component": new C4ComponentDiagramGenerator(),
     bpmn: new BPMNDiagramGenerator(),
     gantt: new GanttDiagramGenerator(),
     stride: new STRIDEDiagramGenerator(),
     architecture: new ArchitectureDiagramGenerator(),
+    flowchart: new FlowchartDiagramGenerator(),
+    sequence: new SequenceDiagramGenerator(),
+    class: new ClassDiagramGenerator(),
   }
 
   static generateDiagram(type: string, context: string, projectData: any): string {

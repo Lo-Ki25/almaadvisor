@@ -1,9 +1,23 @@
 import { db } from "@/lib/db"
 import { RAGRetriever } from "@/lib/rag-retriever"
-import { REPORT_SECTIONS } from "@/lib/report-sections"
+import { LLMProviderFactory, type LLMProvider } from "@/lib/llm-providers"
 import { DiagramGeneratorFactory } from "@/lib/diagram-generators"
 import { TableGeneratorFactory } from "@/lib/table-generators"
-import { LLMProviderFactory, type LLMProvider } from "@/lib/llm-providers"
+import { REPORT_SECTIONS } from "@/lib/report-sections"
+
+// Helper function for safe JSON parsing
+function safeJsonParse<T = unknown>(jsonString: string, fallback: T): T {
+  try {
+    console.log('Parsing JSON string:', jsonString)
+    const result = JSON.parse(jsonString)
+    console.log('JSON parsed successfully:', result)
+    return result
+  } catch (error) {
+    console.error('❌ Failed to parse JSON:', jsonString, 'Error:', error)
+    console.log('Using fallback value:', fallback)
+    return fallback
+  }
+}
 
 export class ReportGenerator {
   private retriever: RAGRetriever
@@ -48,8 +62,8 @@ export class ReportGenerator {
       throw new Error("Project not found")
     }
 
-    const methodologies = project.methodologies ? JSON.parse(project.methodologies) : []
-    const ragOptions = project.ragOptions ? JSON.parse(project.ragOptions) : { topK: 8 }
+    const methodologies = project.methodologies ? safeJsonParse(project.methodologies, []) : []
+    const ragOptions = project.ragOptions ? safeJsonParse(project.ragOptions, { topK: 8 }) : { topK: 8 }
 
     let reportMarkdown = ""
     const allCitations: Array<{
@@ -149,8 +163,8 @@ export class ReportGenerator {
 
   private async generateSection(
     projectId: string,
-    section: any,
-    project: any,
+    section: { id: string; title: string; keywords: string[]; template: string },
+    project: { title: string; client?: string; lead?: string; language: string },
     methodologies: string[],
     topK: number,
   ): Promise<string> {
@@ -250,7 +264,12 @@ export class ReportGenerator {
     return content
   }
 
-  private buildSectionPrompt(section: any, context: string, templateVars: any, methodologies: string[]): string {
+  private buildSectionPrompt(
+    section: { id: string; title: string; keywords: string[]; template: string },
+    context: string,
+    templateVars: Record<string, string>,
+    methodologies: string[]
+  ): string {
     return `Tu es un consultant senior spécialisé en transformation digitale. 
 
 Rédige la section "${section.title}" d'un dossier institutionnel pour le projet "${templateVars.title}" du client "${templateVars.client}".

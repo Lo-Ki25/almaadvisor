@@ -1,65 +1,38 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
-import { ReportGenerator } from "@/lib/report-generator"
+
+// Add OPTIONS handler for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 })
+}
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  console.log(`[GENERATE] Starting report generation for project: ${params.id}`)
+  
   try {
     const projectId = params.id
-
-    // Verify project exists and has embedded chunks
-    const project = await db.project.findUnique({
-      where: { id: projectId },
-      include: {
-        chunks: {
-          where: { embedding: { not: null } },
-          take: 1,
-        },
+    
+    // Redirect to our new API
+    const generateUrl = new URL('/api/generate', request.url)
+    generateUrl.searchParams.set('project', projectId)
+    
+    // Make internal API call to our new generate endpoint
+    const response = await fetch(generateUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
     })
-
-    if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status })
     }
-
-    if (project.chunks.length === 0) {
-      return NextResponse.json(
-        { error: "No embedded chunks found. Please run embedding generation first." },
-        { status: 400 },
-      )
-    }
-
-    // Update project status
-    await db.project.update({
-      where: { id: projectId },
-      data: {
-        status: "generating",
-        updatedAt: new Date(),
-      },
-    })
-
-    // Generate the report
-    const generator = new ReportGenerator()
-    const reportMarkdown = await generator.generateReport(projectId)
-
-    return NextResponse.json({
-      message: "Report generated successfully",
-      reportLength: reportMarkdown.length,
-      projectId,
-    })
+    
+    return NextResponse.json(data)
+    
   } catch (error) {
     console.error("Error generating report:", error)
-
-    // Update project status to error
-    await db.project
-      .update({
-        where: { id: params.id },
-        data: {
-          status: "error",
-          updatedAt: new Date(),
-        },
-      })
-      .catch(() => {}) // Ignore errors in error handling
-
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to generate report" },
       { status: 500 },

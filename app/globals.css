@@ -82,4 +82,68 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+  
+  /* Force white background on all main containers */
+  html, body {
+    background-color: #ffffff !important;
+  }
+  
+  /* Force white background on all pages */
+  main, .main-content, [role="main"] {
+    background-color: #ffffff !important;
+  }
+  
+  /* Force white background on dialogs and popovers */
+  [role="dialog"], [role="alertdialog"] {
+    background-color: #ffffff !important;
+  }
+  
+  /* Force white background on cards */
+  .card, [data-radix-collection-item] {
+    background-color: #ffffff !important;
+  }
+  
+  /* Force white background on dropdowns and menus */
+  [role="menu"], [role="listbox"], [data-radix-select-content] {
+    background-color: #ffffff !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+  
+  /* Ensure all container divs have white background by default */
+  .space-y-6, .space-y-4, .container {
+    background-color: #ffffff !important;
+  }
+  
+  /* Force white background on admin pages */
+  .admin-page, .admin-content {
+    background-color: #ffffff !important;
+  }
+}
+
+@layer components {
+  .bg-white-forced {
+    background-color: #ffffff !important;
+  }
+  
+  .page-container {
+    background-color: #ffffff !important;
+    min-height: 100vh;
+  }
+  
+  .dialog-content {
+    background-color: #ffffff !important;
+    border: 1px solid hsl(var(--border));
+  }
+  
+  .admin-layout {
+    background-color: #ffffff !important;
+  }
+  
+  /* Override any component library transparent backgrounds */
+  .radix-dialog-content,
+  .radix-popover-content,
+  .radix-dropdown-content {
+    background-color: #ffffff !important;
+    backdrop-filter: none !important;
+  }
 }

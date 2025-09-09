@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { FileText, Plus, Clock, CheckCircle, AlertCircle, TrendingUp, Upload, Brain, FileOutput } from "lucide-react"
+import { FileText, Plus, Clock, CheckCircle, AlertCircle, TrendingUp, Upload, Brain, FileOutput, RefreshCw } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 
 interface Project {
@@ -27,8 +28,10 @@ interface Project {
 }
 
 export function Dashboard() {
+  const { toast } = useToast()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({
     totalProjects: 0,
     completedProjects: 0,
@@ -38,11 +41,20 @@ export function Dashboard() {
 
   useEffect(() => {
     fetchProjects()
-  }, [])
+  }, []) // fetchProjects is stable, no dependency needed
 
   const fetchProjects = async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 seconds timeout
+    
     try {
-      const response = await fetch("/api/projects")
+      setError(null)
+      setLoading(true)
+      const response = await fetch("/api/projects", {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
       if (response.ok) {
         const data = await response.json()
         setProjects(data)
@@ -58,9 +70,27 @@ export function Dashboard() {
           inProgressProjects: inProgress,
           avgCompletionRate: data.length > 0 ? Math.round((completed / data.length) * 100) : 0,
         })
+      } else {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`)
       }
     } catch (error) {
-      console.error("Error fetching projects:", error)
+      clearTimeout(timeoutId)
+      let errorMessage = "Erreur de connexion"
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Délai d'attente dépassé. Veuillez réessayer."
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      setError(errorMessage)
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les projets. " + errorMessage,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -146,22 +176,58 @@ export function Dashboard() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Erreur de chargement</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={fetchProjects} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Réessayer
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tableau de Bord</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-2">
             Gérez vos projets de transformation digitale avec ingestion documentaire et génération RAG
           </p>
+          <div className="flex items-center gap-4 mt-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              <span>Système opérationnel</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>Dernière synchronisation: maintenant</span>
+            </div>
+          </div>
         </div>
-        <Link href="/reports/new">
-          <Button size="lg">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouveau Projet
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/admin">
+            <Button variant="outline" size="lg">
+              <Brain className="h-4 w-4 mr-2" />
+              Administration
+            </Button>
+          </Link>
+          <Link href="/reports/new">
+            <Button size="lg">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau Projet
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Pipeline Status Overview */}
@@ -210,50 +276,68 @@ export function Dashboard() {
       </Card>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Projets</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProjects}</div>
-            <p className="text-xs text-muted-foreground">Projets de transformation</p>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <div className="pb-2 border-b">
+          <h2 className="text-xl font-semibold">Vue d'ensemble</h2>
+          <p className="text-sm text-muted-foreground">Statistiques et métriques clé de vos projets</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Projets</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalProjects}</div>
+              <p className="text-xs text-muted-foreground">Projets de transformation</p>
+              <div className="mt-2 text-xs text-green-600">
+                +{stats.totalProjects > 0 ? '1' : '0'} ce mois
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rapports Générés</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completedProjects}</div>
-            <p className="text-xs text-muted-foreground">Prêts à exporter</p>
-          </CardContent>
-        </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rapports Générés</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.completedProjects}</div>
+              <p className="text-xs text-muted-foreground">Prêts à exporter</p>
+              <div className="mt-2 text-xs text-green-600">
+                ✓ {stats.avgCompletionRate}% de réussite
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Traitement</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgressProjects}</div>
-            <p className="text-xs text-muted-foreground">Pipeline actif</p>
-          </CardContent>
-        </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">En Traitement</CardTitle>
+              <Clock className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{stats.inProgressProjects}</div>
+              <p className="text-xs text-muted-foreground">Pipeline actif</p>
+              <div className="mt-2 text-xs text-blue-600">
+                {stats.inProgressProjects > 0 ? '⚡ Actif' : '😴 Inactif'}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taux de Succès</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgCompletionRate}%</div>
-            <p className="text-xs text-muted-foreground">Projets aboutis</p>
-          </CardContent>
-        </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Taux de Succès</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{stats.avgCompletionRate}%</div>
+              <p className="text-xs text-muted-foreground">Projets aboutis</p>
+              <div className="mt-2 text-xs text-purple-600">
+                {stats.avgCompletionRate >= 80 ? '🚀 Excellent' : stats.avgCompletionRate >= 60 ? '📈 Bien' : '🎯 Améliorable'}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Main Content */}

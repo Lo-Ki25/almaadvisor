@@ -1,54 +1,40 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/db"
-import { FileUploadHandler } from "@/lib/file-upload"
+
+// Add OPTIONS handler for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 })
+}
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  console.log(`[UPLOAD] Starting file upload for project: ${params.id}`)
+  
   try {
     const projectId = params.id
-
-    // Verify project exists
-    const project = await db.project.findUnique({
-      where: { id: projectId },
+    
+    // Redirect to our new API
+    const uploadUrl = new URL('/api/upload', request.url)
+    uploadUrl.searchParams.set('project', projectId)
+    uploadUrl.searchParams.set('title', `Project ${projectId}`)
+    uploadUrl.searchParams.set('client', 'Client')
+    
+    // Forward the form data to our new upload endpoint
+    const formData = await request.formData()
+    
+    const response = await fetch(uploadUrl.toString(), {
+      method: 'POST',
+      body: formData,
     })
-
-    if (!project) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status })
     }
-
-    // Handle file upload
-    const uploadedFiles = await FileUploadHandler.handleUpload(request, projectId)
-
-    // Save file metadata to database
-    const documents = await Promise.all(
-      uploadedFiles.map((file) =>
-        db.document.create({
-          data: {
-            projectId,
-            name: file.name,
-            mime: file.type,
-            path: file.path,
-            size: file.size,
-            status: "uploaded",
-          },
-        }),
-      ),
-    )
-
-    // Update project status
-    await db.project.update({
-      where: { id: projectId },
-      data: {
-        status: "uploading",
-        updatedAt: new Date(),
-      },
-    })
-
-    return NextResponse.json({
-      message: "Files uploaded successfully",
-      documents,
-    })
+    
+    return NextResponse.json(data)
+    
   } catch (error) {
-    console.error("Error uploading files:", error)
+    console.error("Error in upload:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to upload files" },
       { status: 500 },

@@ -7,6 +7,7 @@ import { Suspense } from "react"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { Toaster } from "@/components/ui/toaster"
+import { QueryProvider } from "@/providers/query-provider"
 
 export const metadata: Metadata = {
   title: "ALMA-ADVISOR - Digital Transformation Platform",
@@ -22,14 +23,16 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <Suspense fallback={<div>Loading...</div>}>
-          <Navigation />
-        </Suspense>
-        <div className="lg:pl-64">
-          <main className="lg:p-8 p-4">{children}</main>
-        </div>
-        <Toaster />
-        <Analytics />
+        <QueryProvider>
+          <Suspense fallback={<div>Loading...</div>}>
+            <Navigation />
+          </Suspense>
+          <div className="lg:pl-64">
+            <main className="lg:p-8 p-4">{children}</main>
+          </div>
+          <Toaster />
+          <Analytics />
+        </QueryProvider>
       </body>
     </html>
   )

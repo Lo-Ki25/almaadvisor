@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { FileText, Download, Eye, Settings, Brain, Upload, FileOutput, Database, Quote, BarChart3 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 
 interface ReportPageProps {
@@ -27,8 +27,12 @@ interface Project {
   committee?: string
   style?: string
   status: string
-  methodologies?: string
-  ragOptions?: string
+  methodologies?: string[]
+  ragOptions?: {
+    chunkSize?: number
+    overlap?: number
+    topK?: number
+  }
   createdAt: string
   updatedAt: string
   documents: Array<{
@@ -87,11 +91,18 @@ export default function ReportPage({ params }: ReportPageProps) {
 
   useEffect(() => {
     fetchProject()
-  }, [params.id])
+  }, [params.id]) // Include params.id as dependency
 
   const fetchProject = async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 seconds timeout
+    
     try {
-      const response = await fetch(`/api/projects/${params.id}`)
+      const response = await fetch(`/api/projects/${params.id}`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
       if (response.ok) {
         const data = await response.json()
         setProject(data)
@@ -103,10 +114,16 @@ export default function ReportPage({ params }: ReportPageProps) {
         })
       }
     } catch (error) {
-      console.error("Error fetching project:", error)
+      clearTimeout(timeoutId)
+      let errorMessage = "Impossible de charger le projet"
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        errorMessage = "Délai d'attente dépassé. Veuillez réessayer."
+      }
+      
       toast({
         title: "Erreur",
-        description: "Impossible de charger le projet",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -225,8 +242,8 @@ export default function ReportPage({ params }: ReportPageProps) {
     )
   }
 
-  const methodologies = project.methodologies ? JSON.parse(project.methodologies) : []
-  const ragOptions = project.ragOptions ? JSON.parse(project.ragOptions) : {}
+  const methodologies = Array.isArray(project.methodologies) ? project.methodologies : []
+  const ragOptions = typeof project.ragOptions === 'object' ? project.ragOptions : {}
 
   return (
     <div className="space-y-6">

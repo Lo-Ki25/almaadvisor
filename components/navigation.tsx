@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { FileText, Home, BookOpen, Palette, Menu, Plus, Bell, User, Brain, Upload } from "lucide-react"
+import { FileText, Home, Menu, Plus, Bell, User, Brain, Upload } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigationItems = [
@@ -20,24 +20,6 @@ const navigationItems = [
     href: "/reports",
     icon: FileText,
     description: "Gérer les projets et rapports",
-  },
-  {
-    title: "Méthodologies",
-    href: "/methodologies",
-    icon: BookOpen,
-    description: "Frameworks et méthodologies",
-  },
-  {
-    title: "Diagrammes",
-    href: "/diagrams",
-    icon: Palette,
-    description: "Générateur de diagrammes",
-  },
-  {
-    title: "Bibliothèque",
-    href: "/library",
-    icon: BookOpen,
-    description: "Bibliothèque de ressources",
   },
 ]
 
@@ -101,6 +83,7 @@ export function Navigation() {
           Upload Rapide
         </Button>
       </div>
+      
     </div>
   )
 

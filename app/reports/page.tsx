@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,48 +21,14 @@ import {
   Download,
 } from "lucide-react"
 import Link from "next/link"
-
-interface Project {
-  id: string
-  title: string
-  client?: string
-  lead?: string
-  status: string
-  createdAt: string
-  updatedAt: string
-  _count: {
-    documents: number
-    chunks: number
-    diagrams: number
-  }
-  report?: {
-    id: string
-  }
-}
+import { useProjects } from "@/hooks/use-projects"
+import { ProjectCardSkeleton, ErrorState, EmptyState, SearchEmptyState, NetworkErrorState, TimeoutErrorState } from "@/components/ui/states"
 
 export default function ReportsPage() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-
-  useEffect(() => {
-    fetchProjects()
-  }, [])
-
-  const fetchProjects = async () => {
-    try {
-      const response = await fetch("/api/projects")
-      if (response.ok) {
-        const data = await response.json()
-        setProjects(data)
-      }
-    } catch (error) {
-      console.error("Error fetching projects:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  
+  const { data: projects = [], isLoading, error, refetch } = useProjects()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -129,22 +95,71 @@ export default function ReportsPage() {
     return statusProgress[project.status] || 0
   }
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch =
-      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (project.client?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
-    const matchesStatus = statusFilter === "all" || project.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchesSearch =
+        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (project.client?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+      const matchesStatus = statusFilter === "all" || project.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+  }, [projects, searchTerm, statusFilter])
 
-  if (loading) {
+  const handleRetry = () => {
+    refetch()
+  }
+
+  const handleClearSearch = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+  }
+
+  // Error states
+  if (error) {
+    const errorMessage = error.message
+    if (errorMessage.includes('Délai d\'attente')) {
+      return <TimeoutErrorState retry={handleRetry} />
+    }
+    if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+      return <NetworkErrorState retry={handleRetry} />
+    }
+    return (
+      <ErrorState
+        title="Erreur de chargement"
+        message="Impossible de charger les projets"
+        retry={handleRetry}
+      />
+    )
+  }
+
+  // Loading state
+  if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Chargement des projets...</p>
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2"></div>
+            <div className="h-4 w-96 bg-muted animate-pulse rounded"></div>
           </div>
+          <div className="h-10 w-32 bg-muted animate-pulse rounded"></div>
+        </div>
+        
+        {/* Filters skeleton */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 h-10 bg-muted animate-pulse rounded"></div>
+              <div className="h-10 w-48 bg-muted animate-pulse rounded"></div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Project cards skeleton */}
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <ProjectCardSkeleton key={i} />
+          ))}
         </div>
       </div>
     )
@@ -262,29 +277,24 @@ export default function ReportsPage() {
             )
           })
         ) : (
-          <Card>
-            <CardContent className="pt-12 pb-12">
-              <div className="text-center">
-                <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">
-                  {searchTerm || statusFilter !== "all" ? "Aucun projet trouvé" : "Aucun projet"}
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  {searchTerm || statusFilter !== "all"
-                    ? "Essayez de modifier vos critères de recherche ou de filtrage"
-                    : "Commencez par créer votre premier projet avec ingestion documentaire et génération RAG"}
-                </p>
-                {!searchTerm && statusFilter === "all" && (
-                  <Link href="/reports/new">
-                    <Button size="lg">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Créer un Projet
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          // Empty states
+          searchTerm || statusFilter !== "all" ? (
+            <SearchEmptyState 
+              searchTerm={searchTerm || `filtre: ${statusFilter}`}
+              onClear={handleClearSearch}
+            />
+          ) : (
+            <EmptyState
+              icon={Brain}
+              title="Aucun projet"
+              description="Commencez par créer votre premier projet avec ingestion documentaire et génération RAG"
+              action={{
+                label: "Créer un Projet",
+                onClick: () => window.location.href = '/reports/new',
+                icon: Plus
+              }}
+            />
+          )
         )}
       </div>
 

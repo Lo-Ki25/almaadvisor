@@ -1,0 +1,22 @@
+// Main components
+export { Dashboard } from './dashboard'
+export { DiagramGenerator } from './diagram-generator'
+export { DiagramLibrary } from './diagram-library'
+export { MethodologyIntegration } from './methodology-integration'
+export { MethodologySelector } from './methodology-selector'  
+export { MethodologyWizard } from './methodology-wizard'
+export { Navigation } from './navigation'
+export { ThemeProvider } from './theme-provider'
+
+// UI Components (re-export commonly used ones)
+export { Button } from './ui/button'
+export { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+export { Input } from './ui/input'
+export { Label } from './ui/label'
+export { Badge } from './ui/badge'
+export { Progress } from './ui/progress'
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+export { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+export { useToast } from './ui/use-toast'
+export { Toaster } from './ui/toaster'
