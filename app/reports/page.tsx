@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useProjects } from "@/hooks/use-projects"
-import { ProjectCardSkeleton, ErrorState, EmptyState, SearchEmptyState, NetworkErrorState, TimeoutErrorState } from "@/components/ui/states"
+import { DataState, DataSkeleton, EmptyState, SearchEmptyState } from "@/components/ui/states"
 
 export default function ReportsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -114,56 +114,6 @@ export default function ReportsPage() {
     setStatusFilter("all")
   }
 
-  // Error states
-  if (error) {
-    const errorMessage = error.message
-    if (errorMessage.includes('Délai d\'attente')) {
-      return <TimeoutErrorState retry={handleRetry} />
-    }
-    if (errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
-      return <NetworkErrorState retry={handleRetry} />
-    }
-    return (
-      <ErrorState
-        title="Erreur de chargement"
-        message="Impossible de charger les projets"
-        retry={handleRetry}
-      />
-    )
-  }
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2"></div>
-            <div className="h-4 w-96 bg-muted animate-pulse rounded"></div>
-          </div>
-          <div className="h-10 w-32 bg-muted animate-pulse rounded"></div>
-        </div>
-        
-        {/* Filters skeleton */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 h-10 bg-muted animate-pulse rounded"></div>
-              <div className="h-10 w-48 bg-muted animate-pulse rounded"></div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        {/* Project cards skeleton */}
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <ProjectCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -221,63 +171,38 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Projects List */}
-      <div className="space-y-4">
-        {filteredProjects.length > 0 ? (
-          filteredProjects.map((project) => {
-            const StatusIcon = getStatusIcon(project.status)
-            const progress = getProgressPercentage(project)
-
-            return (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="p-3 rounded-lg bg-muted">
-                        <StatusIcon className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold">{project.title}</h3>
-                          <Badge className={getStatusColor(project.status)}>{getStatusLabel(project.status)}</Badge>
-                        </div>
-                        <p className="text-muted-foreground mb-3">
-                          {project.client || "Client non spécifié"} • {project.lead || "Consultant non assigné"}
-                        </p>
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
-                            <Progress value={progress} className="w-32 h-2" />
-                            <span className="text-sm text-muted-foreground">{progress}%</span>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{project._count.documents} documents</span>
-                            <span>{project._count.chunks} chunks</span>
-                            <span>{project._count.diagrams} diagrammes</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {project.report && (
-                        <Button variant="outline" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          Export
-                        </Button>
-                      )}
-                      <Link href={`/reports/${project.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Ouvrir
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
-        ) : (
-          // Empty states
+      {/* Projects List with Tri-State Pattern */}
+      <DataState
+        data={filteredProjects}
+        isLoading={isLoading}
+        error={error}
+        onRetry={handleRetry}
+        loadingComponent={
+          <div className="space-y-6">
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2"></div>
+                <div className="h-4 w-96 bg-muted animate-pulse rounded"></div>
+              </div>
+              <div className="h-10 w-32 bg-muted animate-pulse rounded"></div>
+            </div>
+            
+            {/* Filters skeleton */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 h-10 bg-muted animate-pulse rounded"></div>
+                  <div className="h-10 w-48 bg-muted animate-pulse rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Project cards skeleton */}
+            <DataSkeleton type="list" count={3} />
+          </div>
+        }
+        emptyComponent={
           searchTerm || statusFilter !== "all" ? (
             <SearchEmptyState 
               searchTerm={searchTerm || `filtre: ${statusFilter}`}
@@ -295,8 +220,65 @@ export default function ReportsPage() {
               }}
             />
           )
+        }
+      >
+        {(filteredProjects) => (
+          <div className="space-y-4">
+            {filteredProjects.map((project) => {
+              const StatusIcon = getStatusIcon(project.status)
+              const progress = getProgressPercentage(project)
+
+              return (
+                <Card key={project.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="p-3 rounded-lg bg-muted">
+                          <StatusIcon className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold">{project.title}</h3>
+                            <Badge className={getStatusColor(project.status)}>{getStatusLabel(project.status)}</Badge>
+                          </div>
+                          <p className="text-muted-foreground mb-3">
+                            {project.client || "Client non spécifié"} • {project.lead || "Consultant non assigné"}
+                          </p>
+                          <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                              <Progress value={progress} className="w-32 h-2" />
+                              <span className="text-sm text-muted-foreground">{progress}%</span>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>{project._count.documents} documents</span>
+                              <span>{project._count.chunks} chunks</span>
+                              <span>{project._count.diagrams} diagrammes</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {project.report && (
+                          <Button variant="outline" size="sm">
+                            <Download className="h-4 w-4 mr-2" />
+                            Export
+                          </Button>
+                        )}
+                        <Link href={`/reports/${project.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ouvrir
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
         )}
-      </div>
+      </DataState>
 
       {/* Stats Summary */}
       {projects.length > 0 && (

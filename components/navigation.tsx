@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { FileText, Home, Menu, Plus, Bell, User, Brain, Upload } from "lucide-react"
+import { FileText, Home, Menu, Plus, Bell, User, Brain, Upload, BookOpen, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigationItems = [
@@ -20,6 +20,18 @@ const navigationItems = [
     href: "/reports",
     icon: FileText,
     description: "Gérer les projets et rapports",
+  },
+  {
+    title: "Bibliothèque",
+    href: "/library",
+    icon: BookOpen,
+    description: "Documents traités et analysés",
+  },
+  {
+    title: "Administration",
+    href: "/admin",
+    icon: Settings,
+    description: "Gestion des utilisateurs et API",
   },
 ]
 
